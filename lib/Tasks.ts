@@ -1,7 +1,6 @@
+import fs from "node:fs";
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-
-import modifierJson from "@/data/config/Modifier.json";
 
 export type UnteraufgabenStatus = boolean;
 
@@ -68,10 +67,18 @@ interface ModifierRoot {
 }
 
 export class Tasks {
-  readonly modifier: TaskModifierConfig;
+  private modifierConfig!: TaskModifierConfig;
+  private readonly modifierSourceFilePath: string;
+  private cachedModifierMtimeMs = -1;
 
-  constructor(modifierSource: { Modifier?: ModifierRoot } = modifierJson as { Modifier?: ModifierRoot }) {
-    this.modifier = this.readModifierConfig(modifierSource.Modifier);
+  constructor(modifierSourceFilePath = path.join(process.cwd(), "data/config/Modifier.json")) {
+    this.modifierSourceFilePath = modifierSourceFilePath;
+    this.reloadModifierIfNeeded(true);
+  }
+
+  get modifier(): TaskModifierConfig {
+    this.reloadModifierIfNeeded();
+    return this.modifierConfig;
   }
 
   async readAllTasksFromDirectory(directoryPath = path.join(process.cwd(), "data/tasks")): Promise<ParsedTask[]> {
@@ -576,6 +583,20 @@ export class Tasks {
       summaryTrennzeichen: summary?.Trennzeichen ?? "//",
       summaryInhalt: summary?.Inhalt ?? [],
     };
+  }
+
+  private reloadModifierIfNeeded(force = false): void {
+    const stat = fs.statSync(this.modifierSourceFilePath);
+    const nextMtimeMs = stat.mtimeMs;
+
+    if (!force && nextMtimeMs === this.cachedModifierMtimeMs) {
+      return;
+    }
+
+    const content = fs.readFileSync(this.modifierSourceFilePath, "utf-8");
+    const parsed = JSON.parse(content) as { Modifier?: ModifierRoot };
+    this.modifierConfig = this.readModifierConfig(parsed.Modifier);
+    this.cachedModifierMtimeMs = nextMtimeMs;
   }
 
   private escapeRegex(value: string): string {

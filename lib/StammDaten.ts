@@ -1,4 +1,5 @@
-import stammdatenJson from "@/data/config/StammDaten.json";
+import fs from "node:fs";
+import path from "node:path";
 
 export interface AdresseDatensatz {
   ID: number;
@@ -66,6 +67,9 @@ export interface HausMitRelationen {
 }
 
 export class StammdatenRepository {
+  private data!: StammdatenDatei;
+  private readonly sourceFilePath: string;
+  private cachedMtimeMs = -1;
   private readonly adresseById = new Map<number, AdresseDatensatz>();
   private readonly personById = new Map<number, PersonDatensatz>();
   private readonly typById = new Map<number, TypDatensatz>();
@@ -73,33 +77,23 @@ export class StammdatenRepository {
   private readonly hausById = new Map<number, HausDatensatz>();
   private readonly bereichByKey = new Map<string, BereichDatensatz>();
 
-  constructor(private readonly data: StammdatenDatei = stammdatenJson as StammdatenDatei) {
-    const stammdaten = data.Stammdaten;
-
-    stammdaten.Adresse.forEach((adresse) => this.adresseById.set(adresse.ID, adresse));
-    stammdaten.Person.forEach((person) => this.personById.set(person.ID, person));
-    stammdaten.Typ.forEach((typ) => {
-      this.typById.set(typ.ID, typ);
-      this.typByName.set(this.normalizeTypName(typ.Name), typ);
-    });
-    stammdaten.Haus.forEach((haus) => this.hausById.set(haus.ID, haus));
-    stammdaten.Bereich.forEach((bereich) => {
-      this.bereichByKey.set(
-        this.bereichKey({ typId: bereich["Typ.ID"], bereichId: bereich.ID }),
-        bereich
-      );
-    });
+  constructor(sourceFilePath = path.join(process.cwd(), "data/config/StammDaten.json")) {
+    this.sourceFilePath = sourceFilePath;
+    this.reloadIfNeeded(true);
   }
 
   getStammdaten(): StammdatenBereich {
+    this.reloadIfNeeded();
     return this.data.Stammdaten;
   }
 
   getHausById(hausId: number): HausDatensatz | undefined {
+    this.reloadIfNeeded();
     return this.hausById.get(hausId);
   }
 
   getBereichByKey(key: BereichKey): BereichDatensatz | undefined {
+    this.reloadIfNeeded();
     return this.bereichByKey.get(this.bereichKey(key));
   }
 
@@ -108,6 +102,7 @@ export class StammdatenRepository {
   }
 
   getBereichByTypNameUndId(typName: string, bereichId: number): BereichDatensatz | undefined {
+    this.reloadIfNeeded();
     const typ = this.typByName.get(this.normalizeTypName(typName));
 
     if (!typ) {
@@ -118,6 +113,7 @@ export class StammdatenRepository {
   }
 
   getBereichByBezeichnung(bezeichnung: string): BereichDatensatz | undefined {
+    this.reloadIfNeeded();
     const normalized = bezeichnung
       .trim()
       .replace(/\s+/g, " ")
@@ -134,16 +130,19 @@ export class StammdatenRepository {
   }
 
   getBereicheByHausId(hausId: number): BereichDatensatz[] {
+    this.reloadIfNeeded();
     return this.data.Stammdaten.Bereich.filter((bereich) => bereich["Haus.ID"] === hausId);
   }
 
   getBereicheByPersonId(personId: number): BereichDatensatz[] {
+    this.reloadIfNeeded();
     return this.data.Stammdaten.Bereich.filter((bereich) =>
       bereich["Person.ID"].includes(personId)
     );
   }
 
   getBereichMitRelationenByKey(key: BereichKey): BereichMitRelationen | undefined {
+    this.reloadIfNeeded();
     const bereich = this.getBereichByKey(key);
 
     if (!bereich) {
@@ -158,6 +157,7 @@ export class StammdatenRepository {
   }
 
   getHausMitRelationen(hausId: number): HausMitRelationen | undefined {
+    this.reloadIfNeeded();
     const haus = this.getHausById(hausId);
 
     if (!haus) {
@@ -170,6 +170,47 @@ export class StammdatenRepository {
       typ: this.typById.get(haus["Typ.ID"]),
       bereiche: this.getBereicheByHausId(hausId).map((bereich) => this.resolveBereich(bereich)),
     };
+  }
+
+  private reloadIfNeeded(force = false): void {
+    const stat = fs.statSync(this.sourceFilePath);
+    const nextMtimeMs = stat.mtimeMs;
+
+    if (!force && nextMtimeMs === this.cachedMtimeMs) {
+      return;
+    }
+
+    const fileContent = fs.readFileSync(this.sourceFilePath, "utf-8");
+    const parsed = JSON.parse(fileContent) as StammdatenDatei;
+
+    this.data = parsed;
+    this.cachedMtimeMs = nextMtimeMs;
+    this.rebuildIndexes();
+  }
+
+  private rebuildIndexes(): void {
+    this.adresseById.clear();
+    this.personById.clear();
+    this.typById.clear();
+    this.typByName.clear();
+    this.hausById.clear();
+    this.bereichByKey.clear();
+
+    const stammdaten = this.data.Stammdaten;
+
+    stammdaten.Adresse.forEach((adresse) => this.adresseById.set(adresse.ID, adresse));
+    stammdaten.Person.forEach((person) => this.personById.set(person.ID, person));
+    stammdaten.Typ.forEach((typ) => {
+      this.typById.set(typ.ID, typ);
+      this.typByName.set(this.normalizeTypName(typ.Name), typ);
+    });
+    stammdaten.Haus.forEach((haus) => this.hausById.set(haus.ID, haus));
+    stammdaten.Bereich.forEach((bereich) => {
+      this.bereichByKey.set(
+        this.bereichKey({ typId: bereich["Typ.ID"], bereichId: bereich.ID }),
+        bereich
+      );
+    });
   }
 
   private resolveBereich(bereich: BereichDatensatz): BereichMitRelationen {
