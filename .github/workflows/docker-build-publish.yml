@@ -1,29 +1,14 @@
-name: Docker Build and Publish
+name: Build & Publish Docker Image
 
 on:
-  pull_request:
-    branches: ["main"]
   push:
-    branches: ["main"]
-    tags:
-      - "v*"
-  workflow_dispatch:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 
-permissions:
-  contents: read
+env:
+  REGISTRY: docker.io
 
-jobs:
-  docker:
-    runs-on: ubuntu-latest
-    env:
-      DOCKERHUB_NAMESPACE: ${{ vars.DOCKERHUB_NAMESPACE }}
-      DOCKERHUB_IMAGE_NAME: ${{ vars.DOCKERHUB_IMAGE_NAME }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set image name
         id: image
         shell: bash
         run: |
@@ -33,38 +18,119 @@ jobs:
           fi
           echo "image=${DOCKERHUB_NAMESPACE,,}/${DOCKERHUB_IMAGE_NAME,,}" >> "${GITHUB_OUTPUT}"
 
+jobs:
+  lint:
+    name: Lint Dockerfile
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+
+  docker:
+    name: Build ${{ github.ref_name }}
+    runs-on: ubuntu-latest
+    needs: lint   # 👈 Build läuft erst, wenn Lint erfolgreich war
+
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare image name
+        id: prep
+        run: |
+          if [ -n "${{ vars.IMAGE_NAME }}" ]; then
+            NAME="${{ vars.IMAGE_NAME }}"
+          else
+            NAME="${{ github.repository }}"
+          fi
+          NAME_LC="$(echo "$NAME" | tr '[:upper:]' '[:lower:]')"
+          echo "image=${NAME_LC}" >> "$GITHUB_OUTPUT"
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to Docker Hub
+      - name: Log in to Docker Hub
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
+          registry: ${{ env.REGISTRY }}
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Docker metadata
+      - name: "Extract Docker metadata (tags, labels)"
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ steps.image.outputs.image }}
+          images: ${{ env.REGISTRY }}/${{ steps.prep.outputs.image }}
           tags: |
-            type=ref,event=branch
-            type=ref,event=tag
-            type=sha
-            type=raw,value=latest,enable={{is_default_branch}}
+            # Nur main-Branch → latest + SHA
+            type=raw,value=latest,enable=${{ github.ref_name == 'main' }}
+            type=sha,format=short,prefix=sha-,enable=${{ github.ref_name == 'main' }}
 
-      - name: Build and push image
+      - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./Dockerfile
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+          
+name: Build & Publish Docker Image
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  REGISTRY: docker.io
+
+jobs:
+  lint:
+    name: Lint Dockerfile
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+
+  docker:
+    name: Build ${{ github.ref_name }}
+    runs-on: ubuntu-latest
+    needs: lint   # 👈 Build läuft erst, wenn Lint erfolgreich war
+
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
+
+
+
+
+
+
