@@ -17,14 +17,7 @@ RUN npm ci --omit=dev
 FROM node:22-alpine AS runner
 WORKDIR /app
 
-ARG DUMB_INIT_VERSION=1.2.5-r3
-ARG SU_EXEC_VERSION=0.2-r3
-ARG TZDATA_VERSION=2025b-r0
-
-RUN apk add --no-cache \
-  dumb-init=${DUMB_INIT_VERSION} \
-  su-exec=${SU_EXEC_VERSION} \
-  tzdata=${TZDATA_VERSION}
+RUN apk add --no-cache dumb-init=1.2.5-r3 su-exec=0.2-r3 tzdata=2025b-r0
 
 ENV NODE_ENV=production
 ENV PORT=3000
