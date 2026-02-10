@@ -41,6 +41,6 @@ yarn-error.log*
 next-env.d.ts
 
 # project data
-#Modifier.json
-#StammDaten.json
-#*.ics
+Modifier.json
+StammDaten.json
+*.ics
