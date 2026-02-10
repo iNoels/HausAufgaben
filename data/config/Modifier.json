@@ -1,0 +1,16 @@
+{
+  "Modifier": {
+    "Description": {
+      "Trennzeichen": "\n",
+      "UnterAufgabenStatus": {
+        "NichtBegonnen": { "Freigegeben": "*", "Gesperrt": ".*" },
+        "Erledigt":      { "Freigegeben": "✓", "Gesperrt": ".✓" }
+      },
+      "HinweisTrennzeichen": "##"
+    },
+    "Summary": {
+      "Trennzeichen": "//",
+      "Inhalt": ["Bereich", "Titel", "Verantwortlich"]
+    }
+  }
+}
