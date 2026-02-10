@@ -180,7 +180,6 @@ export class Tasks {
     this.upsertProperty(vtodoLines, "DESCRIPTION", this.escapeIcsText(descriptionValue));
     this.upsertProperty(vtodoLines, "DTSTAMP", nowUtc);
     this.upsertProperty(vtodoLines, "LAST-MODIFIED", nowUtc);
-    this.applyCompletionState(vtodoLines, unteraufgaben, nowUtc);
 
     const updatedLines = [
       ...unfoldedLines.slice(0, vtodoBounds.begin + 1),
@@ -191,18 +190,6 @@ export class Tasks {
 
     await writeFile(filePath, updatedContent, "utf8");
     return this.parseTaskFromIcsContent(updatedContent, filePath);
-  }
-
-  async completeTaskIfAllUnteraufgabenErledigt(filePath: string): Promise<ParsedTask> {
-    const parsed = await this.readTaskFromFile(filePath);
-    const unteraufgaben: UnteraufgabeUpdateInput[] = parsed.unteraufgaben.map((item) => ({
-      titel: item.titel,
-      status: item.status,
-      freigegeben: item.freigegeben,
-      hinweis: item.hinweis,
-    }));
-
-    return this.writeUnteraufgabenToFile(filePath, unteraufgaben);
   }
 
   parseTaskFromIcsContent(content: string, sourceFile?: string): ParsedTask {
@@ -482,46 +469,6 @@ export class Tasks {
     }
 
     lines.push(newLine);
-  }
-
-  private removeProperty(lines: string[], key: string): void {
-    const keyUpper = key.toUpperCase();
-
-    for (let index = lines.length - 1; index >= 0; index -= 1) {
-      const line = lines[index];
-      const separatorIndex = line.indexOf(":");
-
-      if (separatorIndex <= 0) {
-        continue;
-      }
-
-      const left = line.slice(0, separatorIndex);
-      const lineKey = left.split(";", 1)[0].toUpperCase();
-
-      if (lineKey === keyUpper) {
-        lines.splice(index, 1);
-      }
-    }
-  }
-
-  private applyCompletionState(
-    vtodoLines: string[],
-    unteraufgaben: UnteraufgabeUpdateInput[],
-    nowUtc: string
-  ): void {
-    const hasUnteraufgaben = unteraufgaben.length > 0;
-    const allDone = hasUnteraufgaben && unteraufgaben.every((item) => item.status);
-
-    if (allDone) {
-      this.upsertProperty(vtodoLines, "STATUS", "COMPLETED");
-      this.upsertProperty(vtodoLines, "COMPLETED", nowUtc);
-      this.upsertProperty(vtodoLines, "PERCENT-COMPLETE", "100");
-      return;
-    }
-
-    this.upsertProperty(vtodoLines, "STATUS", "NEEDS-ACTION");
-    this.removeProperty(vtodoLines, "COMPLETED");
-    this.removeProperty(vtodoLines, "PERCENT-COMPLETE");
   }
 
   private unfoldIcsLines(content: string): string[] {

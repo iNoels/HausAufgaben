@@ -39,8 +39,6 @@ export async function GET() {
         due: task.due,
         dtStamp: task.dtStamp,
         lastModified: task.properties["LAST-MODIFIED"],
-        completed: task.properties.COMPLETED,
-        percentComplete: task.properties["PERCENT-COMPLETE"],
         stammdaten: bereich
           ? {
               typName: bereichMitRelationen?.typ?.Name,

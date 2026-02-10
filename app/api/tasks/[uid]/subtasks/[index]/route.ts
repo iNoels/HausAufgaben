@@ -73,8 +73,6 @@ export async function PATCH(
         due: updatedTask.due,
         dtStamp: updatedTask.dtStamp,
         lastModified: updatedTask.properties["LAST-MODIFIED"],
-        completed: updatedTask.properties.COMPLETED,
-        percentComplete: updatedTask.properties["PERCENT-COMPLETE"],
         stammdaten: bereich
           ? {
               typName: bereichMitRelationen?.typ?.Name,

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 type UiStatus = boolean;
@@ -43,8 +44,6 @@ interface UiTask {
   unteraufgaben: UiUnteraufgabe[];
   dtStamp?: string;
   lastModified?: string;
-  completed?: string;
-  percentComplete?: string;
   stammdaten?: UiStammdaten | null;
 }
 
@@ -68,8 +67,17 @@ function startOfDay(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
+function isTaskCompleted(task: UiTask): boolean {
+  if ((task.status ?? "").trim().toUpperCase() === "COMPLETED") {
+    return true;
+  }
+
+  const freigegebeneUnteraufgaben = task.unteraufgaben.filter((item) => item.freigegeben);
+  return freigegebeneUnteraufgaben.length > 0 && freigegebeneUnteraufgaben.every((item) => item.status);
+}
+
 function getTaskCardClass(task: UiTask): string {
-  if (task.status === "COMPLETED") {
+  if (isTaskCompleted(task)) {
     return "bg-emerald-950/60 ring-emerald-800";
   }
 
@@ -202,17 +210,17 @@ function TasksPage() {
 
   const offeneCount = useMemo(() => {
     return tasks.reduce((sum, task) => {
-      const offene = task.unteraufgaben.filter((item) => !item.status).length;
+      const offene = task.unteraufgaben.filter((item) => item.freigegeben && !item.status).length;
       return sum + offene;
     }, 0);
   }, [tasks]);
 
   const offeneAufgabenCount = useMemo(() => {
-    return tasks.filter((task) => task.status !== "COMPLETED").length;
+    return tasks.filter((task) => !isTaskCompleted(task)).length;
   }, [tasks]);
 
   const unteraufgabenCount = useMemo(() => {
-    return tasks.reduce((sum, task) => sum + task.unteraufgaben.length, 0);
+    return tasks.reduce((sum, task) => sum + task.unteraufgaben.filter((item) => item.freigegeben).length, 0);
   }, [tasks]);
 
   const verantwortlichOptionen = useMemo(() => {
@@ -228,10 +236,11 @@ function TasksPage() {
   }, [tasks]);
 
   const filteredTasks = useMemo(() => {
+    const offeneTasks = tasks.filter((task) => !isTaskCompleted(task));
     const list =
       verantwortlichFilter === "Alle"
-        ? tasks
-        : tasks.filter((task) => (task.summary.felder.Verantwortlich?.trim() || "") === verantwortlichFilter);
+        ? offeneTasks
+        : offeneTasks.filter((task) => (task.summary.felder.Verantwortlich?.trim() || "") === verantwortlichFilter);
 
     return [...list].sort(compareTasksByDueAsc);
   }, [tasks, verantwortlichFilter]);
@@ -341,18 +350,26 @@ function TasksPage() {
                 ))}
               </div>
             </div>
-            <button
-              type="button"
-              aria-label="Taskliste aktualisieren"
-              onClick={() => void refresh()}
-              disabled={isLoading}
-              className="rounded-full border border-neutral-700 p-2 text-neutral-300 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M20 12a8 8 0 1 1-2.34-5.66" />
-                <path d="M20 4v6h-6" />
-              </svg>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                aria-label="Taskliste aktualisieren"
+                onClick={() => void refresh()}
+                disabled={isLoading}
+                className="rounded-full border border-neutral-700 p-2 text-neutral-300 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <path d="M20 12a8 8 0 1 1-2.34-5.66" />
+                  <path d="M20 4v6h-6" />
+                </svg>
+              </button>
+              <Link
+                href="/Abgeschlossen"
+                className="rounded border border-neutral-700 px-3 py-2 text-sm text-neutral-200 hover:bg-neutral-800"
+              >
+                Abgeschlossen
+              </Link>
+            </div>
           </div>
         </header>
 
@@ -379,7 +396,7 @@ function TasksPage() {
                     <input
                       type="radio"
                       aria-label="Aufgabenstatus"
-                      checked={task.status === "COMPLETED"}
+                      checked={isTaskCompleted(task)}
                       disabled
                       readOnly
                     />
@@ -420,15 +437,17 @@ function TasksPage() {
 
                   <ul className="mt-4 space-y-2">
                     {task.unteraufgaben.map((item, index) => {
+                      if (!item.freigegeben) {
+                        return null;
+                      }
+
                       const key = `${task.id}:${index}`;
-                      const locked = !item.freigegeben || savingKey === key;
+                      const locked = savingKey === key;
                       const hinweisLocked = item.status || locked;
                       const subtaskContainerClass = item.status
                         ? "bg-emerald-950/50 ring-emerald-800"
-                        : !item.freigegeben
-                          ? "bg-neutral-900 ring-neutral-800"
-                          : "bg-neutral-800 ring-neutral-700";
-                      const titleClass = !item.freigegeben ? "font-medium text-neutral-500" : "font-medium text-neutral-100";
+                        : "bg-neutral-800 ring-neutral-700";
+                      const titleClass = "font-medium text-neutral-100";
 
                       return (
                         <li
@@ -450,7 +469,7 @@ function TasksPage() {
                           <div className="flex items-start gap-3">
                             <input
                               type="radio"
-                              aria-label="Unteraufgabe erledigt"
+                              aria-label="Unteraufgabe abgeschlossen"
                               checked={item.status}
                               disabled={locked}
                               onClick={() => {
