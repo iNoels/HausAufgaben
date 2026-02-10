@@ -1,36 +1,128 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# HausAufgaben
 
-## Getting Started
+WebApp zur Anzeige und Pflege von Aufgaben rund ums Grundstück.
 
-First, run the development server:
+Die Anwendung basiert auf Next.js (App Router), liest Aufgaben aus `data/tasks/*.ics` und ergänzt diese mit Stammdaten aus `data/config/StammDaten.json`.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Features
+
+- Aufgabenliste mit fixer Sortierung nach Fälligkeit (aufsteigend)
+- Filterung nach Verantwortlich
+- Bearbeiten von Unteraufgaben (Status + Hinweis)
+- API-Endpunkte für Aufgaben und Unteraufgaben
+- Healthcheck-Endpunkt für Containerbetrieb (`/health`)
+
+## Tech Stack
+
+- Next.js 16
+- React 19
+- TypeScript
+- Tailwind CSS 4
+- ESLint
+
+## Projektstruktur
+
+```text
+app/
+  api/tasks/...              # Task-API
+  health/route.ts            # Healthcheck: "I am healthy"
+  page.tsx                   # Haupt-UI
+data/
+  config/StammDaten.json     # Stammdaten
+  tasks/*.ics                # Aufgabenquellen
+lib/
+  Tasks.ts                   # ICS Parsing/Update
+  StammDaten.ts              # Stammdaten-Zugriff
+Dockerfile
+docker-entrypoint.sh
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Lokale Entwicklung
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Voraussetzungen:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Node.js 22+
+- npm
 
-## Learn More
+Start:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm ci
+npm run dev
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Dann im Browser öffnen:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+`http://localhost:3000`
 
-## Deploy on Vercel
+Nützliche Scripts:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npm run lint
+npm run build
+npm run start
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## API
+
+- `GET /api/tasks`
+  - liefert alle Aufgaben inkl. Stammdatenbezug
+- `PATCH /api/tasks/:uid/subtasks/:index`
+  - aktualisiert Unteraufgabenstatus oder Hinweis
+- `GET /health`
+  - Antwort: `I am healthy`
+
+## Docker
+
+Die App wird vollständig im Container gebaut (`npm ci`, `npm run build`) und als Multi-Stage-Image ausgeliefert.
+
+Build:
+
+```bash
+docker build -t hausaufgaben:local .
+```
+
+Run:
+
+```bash
+docker run --rm -p 3000:3000 \
+  -e UID=1000 \
+  -e GID=1000 \
+  -e TZ=Europe/Berlin \
+  hausaufgaben:local
+```
+
+Konfigurierbare Umgebungsvariablen im Container:
+
+- `UID` (Default: `1000`)
+- `GID` (Default: `1000`)
+- `TZ` (Default: `Europe/Berlin`)
+
+Der Container enthält einen nativen Healthcheck gegen `http://127.0.0.1:3000/health`.
+
+## GitHub Actions: Docker Build & Publish
+
+Workflow-Datei:
+
+- `.github/workflows/docker-build-publish.yml`
+
+Verhalten:
+
+- Pull Requests auf `main`: Docker-Build (ohne Push)
+- Push auf `main` und `v*`-Tags: Build + Push auf Docker Hub
+
+Benötigte GitHub Secrets:
+
+- `DOCKERHUB_USERNAME`
+- `DOCKERHUB_TOKEN`
+
+Optionale GitHub Variable:
+
+- `IMAGE_NAME`  
+  Wenn nicht gesetzt, wird automatisch `${{ github.repository }}` verwendet.
+
+## Hinweise zum Betrieb
+
+- Aufgaben werden aus den `.ics`-Dateien im Verzeichnis `data/tasks/` gelesen.
+- Änderungen an Unteraufgaben werden in den jeweiligen `.ics`-Dateien gespeichert.
+- Für reproduzierbare Container-Builds sind Alpine-Pakete im `Dockerfile` auf feste Versionen gepinnt.
