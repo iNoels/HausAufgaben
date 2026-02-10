@@ -41,5 +41,4 @@ yarn-error.log*
 next-env.d.ts
 
 # project data
-data/config/StammDaten.json
-data/tasks/*.ics
+/data/
