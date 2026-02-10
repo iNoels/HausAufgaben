@@ -13,7 +13,5 @@ else
 fi
 
 chown -R "${UID}:${GID}" /app
-chown -R "${UID}:${GID}" /data
-chown -R "${UID}:${GID}" /lib
 
 exec su-exec "${UID}:${GID}" "$@"
