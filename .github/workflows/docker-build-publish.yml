@@ -3,20 +3,12 @@ name: Build & Publish Docker Image
 on:
   push:
     branches: [ "main" ]
+    tags: [ "v*" ]
   pull_request:
     branches: [ "main" ]
 
 env:
   REGISTRY: docker.io
-
-        id: image
-        shell: bash
-        run: |
-          if [ -z "${DOCKERHUB_NAMESPACE}" ] || [ -z "${DOCKERHUB_IMAGE_NAME}" ]; then
-            echo "DOCKERHUB_NAMESPACE and DOCKERHUB_IMAGE_NAME repository variables are required."
-            exit 1
-          fi
-          echo "image=${DOCKERHUB_NAMESPACE,,}/${DOCKERHUB_IMAGE_NAME,,}" >> "${GITHUB_OUTPUT}"
 
 jobs:
   lint:
@@ -85,48 +77,12 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
+          platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-          
-name: Build & Publish Docker Image
-
-on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-
-env:
-  REGISTRY: docker.io
-
-jobs:
-  lint:
-    name: Lint Dockerfile
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Run Hadolint
-        uses: hadolint/hadolint-action@v3.1.0
-        with:
-          dockerfile: Dockerfile
-
-  docker:
-    name: Build ${{ github.ref_name }}
-    runs-on: ubuntu-latest
-    needs: lint   # 👈 Build läuft erst, wenn Lint erfolgreich war
-
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
 
 
 
