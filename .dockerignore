@@ -8,3 +8,5 @@ npm-debug.log
 .DS_Store
 *.tsbuildinfo
 next-env.d.ts
+./data/config/*.json
+./data/tasks/*.ics
