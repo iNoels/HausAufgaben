@@ -8,12 +8,12 @@ DESCRIPTION:.* Thermostat bestellen\n✓ Thermostat (Küche) montieren\n✓
   Thermostat (Schlafzimmer) montieren\n✓ Thermostat (Wohnzimmer) montiere
  n\n✓ Thermostat (Flur) montieren\n* Thermostat (Badezimmer) montieren\n*
   Thermostatventiel (Flur) gängig machen\n.* Überprüfung der Ausführung
-DTSTAMP:20260209T192429Z
-DTSTART;VALUE=DATE:20260220
-DUE;VALUE=DATE:20260220
-LAST-MODIFIED:20260209T192429Z
+DTSTAMP:20260210T212041Z
+DTSTART;VALUE=DATE:20260227
+DUE;VALUE=DATE:20260227
+LAST-MODIFIED:20260210T212040Z
 STATUS:NEEDS-ACTION
-SUMMARY:Wohnung 3 // Thermostate montieren // Hausmeister
+SUMMARY:Wohnung 3 // Thermostate montieren // Hausmeisterservice
 UID:F02493A9-E724-44F2-A72C-164FDF307A1D
 X-APPLE-SORT-ORDER:9
 END:VTODO
