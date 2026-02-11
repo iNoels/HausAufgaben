@@ -27,7 +27,7 @@ jobs:
   docker:
     name: Build ${{ github.ref_name }}
     runs-on: ubuntu-latest
-    needs: lint   # 👈 Build läuft erst, wenn Lint erfolgreich war
+    needs: lint
 
     permissions:
       contents: read
